@@ -30,12 +30,14 @@ detect_gpu() {
 
 # Detect if Docker is running
 check_docker() {
-    if ! docker info >/dev/null 2>&1; then
-        echo "${RED}Docker is not running or not installed.${RESET}"
-        echo "Please install Docker first:"
-        echo "  sudo apt update && sudo apt install -y docker.io"
-        echo "  sudo systemctl enable --now docker"
-        exit 1
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "${YELLOW}Docker not found. Installing Docker...${NORMAL}"
+        curl -fsSL https://get.docker.com | sh
+        sudo systemctl enable docker
+        sudo systemctl start docker
+        echo "${GREEN}Docker installed successfully.${NORMAL}"
+    else
+        echo "${GREEN}Docker already installed.${NORMAL}"
     fi
 }
 
@@ -79,7 +81,7 @@ install_local() {
         echo "${YELLOW}No GPU detected. Using CPU build.${RESET}"
     fi
 
-    docker run -d -p 3000:8080 $GPU_FLAG \
+    sudo docker run -d -p 3000:8080 $GPU_FLAG \
         -v ${OLLAMA_VOLUME}:/root/.ollama \
         -v ${OPENWEBUI_VOLUME}:/app/backend/data \
         --add-host=host.docker.internal:host-gateway \
@@ -100,7 +102,7 @@ install_remote() {
         REMOTE_URL="http://127.0.0.1:11434"
     fi
 
-    docker run -d -p 3000:8080 \
+    sudo docker run -d -p 3000:8080 \
         -v ${OPENWEBUI_VOLUME}:/app/backend/data \
         -e OLLAMA_BASE_URL=${REMOTE_URL} \
         --name ${CONTAINER_NAME} --restart always \
@@ -117,7 +119,7 @@ install_openai() {
     check_docker
     read -rp "Enter your OpenAI API key: " API_KEY
 
-    docker run -d -p 3000:8080 \
+    sudo docker run -d -p 3000:8080 \
         -v ${OPENWEBUI_VOLUME}:/app/backend/data \
         -e OPENAI_API_KEY=${API_KEY} \
         --name ${CONTAINER_NAME} --restart always \
@@ -133,8 +135,8 @@ update_container() {
     echo "${BOLD}${CYAN}Updating Open WebUI...${RESET}"
     check_docker
 
-    docker pull ${OPENWEBUI_IMAGE}:main
-    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower --run-once ${CONTAINER_NAME}
+    sudo docker pull ${OPENWEBUI_IMAGE}:main
+    sudo docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower --run-once ${CONTAINER_NAME}
 
     echo "${GREEN}Open WebUI updated successfully.${RESET}"
     pause
@@ -144,9 +146,9 @@ remove_container() {
     clear
     echo "${BOLD}${RED}Removing Open WebUI container and volumes...${RESET}"
     check_docker
-    docker stop ${CONTAINER_NAME} >/dev/null 2>&1 || true
-    docker rm ${CONTAINER_NAME} >/dev/null 2>&1 || true
-    docker volume rm ${OPENWEBUI_VOLUME} >/dev/null 2>&1 || true
+    sudo docker stop ${CONTAINER_NAME} >/dev/null 2>&1 || true
+    sudo docker rm ${CONTAINER_NAME} >/dev/null 2>&1 || true
+    sudo docker volume rm ${OPENWEBUI_VOLUME} >/dev/null 2>&1 || true
 
     echo "${GREEN}Open WebUI removed successfully.${RESET}"
     pause
